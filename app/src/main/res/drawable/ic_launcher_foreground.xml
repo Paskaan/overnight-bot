@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Crescent moon with a rising line: hold overnight, sell at the open. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFF4F1EA"
+        android:pathData="M60,30a24,24 0,1 0,18 40a19,19 0,1 1,-18 -40z" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFD97757"
+        android:strokeWidth="5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M30,76L44,64L54,70L78,46" />
+    <path
+        android:fillColor="#FFD97757"
+        android:pathData="M68,42L82,42L82,56z" />
+</vector>

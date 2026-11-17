@@ -1,0 +1,66 @@
+name: Build APK
+
+on:
+  push:
+    branches: [master, main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Test and build
+        id: build
+        run: |
+          set -o pipefail
+          chmod +x gradlew
+          ./gradlew --no-daemon --console=plain testDebugUnitTest assembleDebug 2>&1 | tee "$RUNNER_TEMP/build.log"
+
+      # The finished app appears under Releases in the repository.
+      - name: Publish APK
+        if: steps.build.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp app/build/outputs/apk/debug/app-debug.apk "$RUNNER_TEMP/OvernightBot.apk"
+          gh release create "build-${{ github.run_number }}" "$RUNNER_TEMP/OvernightBot.apk" \
+            --title "Overnight Bot build ${{ github.run_number }}" \
+            --notes "Install OvernightBot.apk on the phone." \
+            --target "${{ github.sha }}"
+
+      # A short build log is kept on the ci-logs branch so errors can be read without opening Actions.
+      - name: Save build log
+        if: always()
+        run: |
+          out="$RUNNER_TEMP/build-log.txt"
+          touch "$RUNNER_TEMP/build.log"
+          {
+            echo "run ${{ github.run_number }} | commit ${{ github.sha }} | build ${{ steps.build.outcome }}"
+            grep -nE "^e: |error:|FAILED|What went wrong|BUILD (SUCCESSFUL|FAILED)" "$RUNNER_TEMP/build.log" | head -n 200 || true
+            echo "---- last lines ----"
+            tail -n 100 "$RUNNER_TEMP/build.log"
+          } > "$out"
+          git config user.name "build"
+          git config user.email "build@users.noreply.github.com"
+          git checkout -q --orphan ci-logs
+          git rm -rfq --cached .
+          cp "$out" build-log.txt
+          git add -f build-log.txt
+          git commit -qm "Build log ${{ github.run_number }}"
+          git push -qf origin ci-logs
