@@ -12,8 +12,8 @@ android {
         applicationId = "com.pascalh.overnightbot"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.2"
+        versionCode = 3
+        versionName = "0.3"
     }
 
     // One fixed key for every build, so a new APK installs over the old one and keeps its data.

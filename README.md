@@ -1,4 +1,4 @@
-# Overnight Bot – Android app (v0.2)
+# Overnight Bot – Android app (v0.3)
 
 The PLUG overnight strategy as a phone app, without n8n. The app talks to Alpaca directly. It can run the PLUG bot, the RIOT bot, or both with a split of the money.
 

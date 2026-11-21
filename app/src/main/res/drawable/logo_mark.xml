@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The full app logo (rounded yellow tile + moon face), used inside the app. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFF4B342"
+        android:pathData="M26,0H82A26,26 0 0,1 108,26V82A26,26 0 0,1 82,108H26A26,26 0 0,1 0,82V26A26,26 0 0,1 26,0Z" />
+    <path
+        android:fillColor="#FF0D1328"
+        android:pathData="M56.32,30.1A27,27 0 1,0 80.31,63.08A22.5,22.5 0 0,1 56.32,30.1Z" />
+    <path
+        android:fillColor="#FFF4B342"
+        android:pathData="M40.1,57.15A2.4,2.4 0 0,1 44.9,57.15V62.85A2.4,2.4 0 0,1 40.1,62.85ZM50.8,57.15A2.4,2.4 0 0,1 55.6,57.15V62.85A2.4,2.4 0 0,1 50.8,62.85Z" />
+</vector>

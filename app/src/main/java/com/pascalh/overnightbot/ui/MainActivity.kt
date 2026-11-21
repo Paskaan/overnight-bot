@@ -8,11 +8,14 @@ import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -21,26 +24,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -54,6 +45,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.app.NotificationManagerCompat
 import com.pascalh.overnightbot.Graph
 import com.pascalh.overnightbot.core.Account
@@ -73,35 +65,25 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import com.pascalh.overnightbot.core.State as BotState
 
-val Accent = Color(0xFFD97757)
-val Good = Color(0xFF6FCF97)
-val Bad = Color(0xFFEB5757)
-val Muted = Color(0xFF9AA4AE)
-
-private val Colors = darkColorScheme(
-    primary = Accent,
-    onPrimary = Color(0xFF1A1208),
-    secondary = Accent,
-    background = Color(0xFF101418),
-    surface = Color(0xFF101418),
-    surfaceVariant = Color(0xFF1B2229),
-    onSurfaceVariant = Color(0xFFD5DBE1),
-)
-
 class MainActivity : ComponentActivity() {
     private val resumes = mutableStateOf(0)
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        enableEdgeToEdge()
+        // Light page with dark icons on top; dark tab bar with light icons at the bottom.
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+        )
         super.onCreate(savedInstanceState)
         Graph.init(this)
         setContent {
-            MaterialTheme(colorScheme = Colors) {
+            MaterialTheme(colorScheme = AppColors) {
                 AppRoot(resumes.value)
             }
         }
@@ -129,43 +111,18 @@ fun AppRoot(resumes: Int) {
         if (Build.VERSION.SDK_INT >= 33) askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
     }
 
-    Scaffold(
-        bottomBar = {
-            NavigationBar {
-                NavigationBarItem(selected = tab == 0, onClick = { tab = 0 }, icon = { Icon(Icons.Filled.Home, null) }, label = { Text("Bots") })
-                NavigationBarItem(selected = tab == 1, onClick = { tab = 1; reload() }, icon = { Icon(Icons.Filled.DateRange, null) }, label = { Text("Log") })
-                NavigationBarItem(selected = tab == 2, onClick = { tab = 2 }, icon = { Icon(Icons.Filled.Settings, null) }, label = { Text("Settings") })
-            }
-        }
-    ) { inner ->
-        Column(Modifier.padding(inner).fillMaxSize().imePadding()) {
+    Column(Modifier.fillMaxSize().background(Paper)) {
+        Box(Modifier.weight(1f).fillMaxWidth().imePadding()) {
             when (tab) {
                 0 -> DashboardScreen(state, version, reload)
                 1 -> LogScreen(version)
                 else -> SettingsScreen(state, reload)
             }
         }
-    }
-}
-
-@Composable
-fun SectionCard(title: String, content: @Composable () -> Unit) {
-    Card(Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
-        Column(Modifier.padding(16.dp)) {
-            if (title.isNotEmpty()) {
-                Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                Spacer(Modifier.height(8.dp))
-            }
-            content()
+        BottomTabs(tab) { t ->
+            tab = t
+            if (t == 1) reload()
         }
-    }
-}
-
-@Composable
-fun Line(label: String, value: String, color: Color = Color.Unspecified) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(label, color = Muted)
-        Text(value, color = color, fontWeight = FontWeight.Medium)
     }
 }
 
@@ -176,6 +133,13 @@ private fun localTime(ms: Long): String {
     val ny = at.atZone(NY).format(DateTimeFormatter.ofPattern("HH:mm", Locale.US))
     return "$local ($ny New York)"
 }
+
+@Composable
+private fun ModeBadge(mode: Mode) {
+    if (mode == Mode.LIVE) Badge("LIVE", Bad) else Badge("PAPER", Green)
+}
+
+// ========================================================================================= Bots
 
 @Composable
 fun DashboardScreen(state: BotState, version: Int, reload: () -> Unit) {
@@ -208,35 +172,33 @@ fun DashboardScreen(state: BotState, version: Int, reload: () -> Unit) {
     }
     LaunchedEffect(version, cfg.mode, hasKeys) { if (hasKeys) refreshAccount() }
 
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
-        Text("Overnight Bot", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        Text(
-            if (cfg.mode == Mode.LIVE) "LIVE account: real money" else "Paper account: test money",
-            color = if (cfg.mode == Mode.LIVE) Accent else Muted,
-        )
-        Spacer(Modifier.height(12.dp))
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+        AppHeader("OVERNIGHT / TRADING BOT", "Your bots") { ModeBadge(cfg.mode) }
 
         if (!hasKeys) {
-            SectionCard("Start here") {
-                Text("Open Settings and enter your Alpaca API keys for $modeName mode. Then switch the bot on.")
+            PaperCard {
+                Kicker("Start here", AlpacaOlive)
+                Spacer(Modifier.height(10.dp))
+                Text("Open Settings and enter your Alpaca API keys for $modeName mode. Then switch the bot on.", fontSize = 15.sp)
             }
         }
 
-        SectionCard("") {
+        InkCard {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text(if (cfg.active) "Bot is ON" else "Bot is OFF", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    Text(
+                    Text(if (cfg.active) "Bot is ON" else "Bot is OFF", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = if (cfg.active) Green else OnInk)
+                    Spacer(Modifier.height(4.dp))
+                    Hint(
                         if (!cfg.active) "No checks, no orders."
                         else if (cfg.ordersEnabled) "Next check: " + localTime(Graph.nextAlarm())
                         else "Signals only, no orders. Next check: " + localTime(Graph.nextAlarm()),
-                        color = Muted,
                     )
                 }
-                Switch(
+                Spacer(Modifier.width(12.dp))
+                SkewToggle(
                     checked = cfg.active,
                     enabled = hasKeys || cfg.active,
-                    onCheckedChange = { on ->
+                    onChange = { on ->
                         scope.launch {
                             withContext(Dispatchers.IO) {
                                 Graph.update { Engine.applySettings(it, it.settings.copy(active = on), Instant.now().toString()) }
@@ -251,15 +213,17 @@ fun DashboardScreen(state: BotState, version: Int, reload: () -> Unit) {
 
         PhoneChecks(ctx, version)
 
-        SectionCard("Alpaca account ($modeName)") {
+        InkCard("01 / Alpaca account") {
             val acc = account
             if (acc != null) {
-                Line("Equity", "$" + usd(acc.equity))
-                Line("Cash", "$" + usd(acc.cash))
+                Hint("Total equity", fontSizeLarge = true)
+                Text("$" + usd(acc.equity), fontSize = 42.sp, fontWeight = FontWeight.Bold, lineHeight = 48.sp)
+                InkDivider()
+                Line("Available cash", "$" + usd(acc.cash))
                 val day = acc.equity - acc.lastEquity
                 Line("Today", signedUsd(day) + " USD", if (day >= 0) Good else Bad)
             } else {
-                Text(if (accountError.isNotEmpty()) accountError else if (hasKeys) "Loading…" else "No keys saved.", color = Muted)
+                Hint(if (accountError.isNotEmpty()) accountError else if (hasKeys) "Loading…" else "No keys saved.")
             }
         }
 
@@ -270,12 +234,14 @@ fun DashboardScreen(state: BotState, version: Int, reload: () -> Unit) {
                     it.status in setOf(TradeStatus.BUY_SENT, TradeStatus.HOLDING, TradeStatus.SELL_SENT)
             }
             val pos = positions.firstOrNull { it.symbol == sym }
-            SectionCard(sym + if (share > 0) "  ·  " + Math.round(share * 100) + "% of the money" else "  ·  off") {
-                Text(
-                    "Buys at the close when the price is more than " + pct(cfg.minGreen(sym)) + "% above today's open. Sells at the next open.",
-                    color = Muted,
-                )
-                Spacer(Modifier.height(6.dp))
+            InkCard {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(sym, fontSize = 30.sp, fontWeight = FontWeight.Bold, color = if (share > 0) OnInk else OnInkMuted, modifier = Modifier.weight(1f))
+                    Kicker(if (share > 0) "" + Math.round(share * 100) + "% allocation" else "off", if (share > 0) Gold else OnInkMuted)
+                }
+                Spacer(Modifier.height(12.dp))
+                Hint("Buys at the close when the price is more than " + pct(cfg.minGreen(sym)) + "% above today's open. Sells at the next open.", fontSizeLarge = true)
+                InkDivider()
                 if (share > 0) {
                     if (cfg.sizing == Sizing.COMPOUND) Line("Capital (compounding)", "$" + usd(state.capital(sym)))
                     else Line("Per night (fixed)", "$" + usd(cfg.totalUsd * share))
@@ -287,51 +253,59 @@ fun DashboardScreen(state: BotState, version: Int, reload: () -> Unit) {
                     when (trade?.status) {
                         TradeStatus.BUY_SENT -> "Buy order sent"
                         TradeStatus.HOLDING -> "Holding " + Math.round(trade?.qty ?: 0.0) + " shares"
-                        TradeStatus.SELL_SENT -> "Sell order waiting for the open"
-                        else -> if (pos != null && pos.qty > 0) "Position in account: " + Math.round(pos.qty) + " shares" else "No position"
+                        TradeStatus.SELL_SENT -> "Sell waiting for the open"
+                        else -> if (pos != null && pos.qty > 0) "In account: " + Math.round(pos.qty) + " shares" else "No position"
                     },
                 )
             }
         }
 
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Button(
-                enabled = !busy && cfg.active && hasKeys,
-                onClick = {
-                    busy = true
-                    scope.launch {
-                        val text = withContext(Dispatchers.IO) {
-                            try {
-                                Graph.runner.tick()
-                            } catch (e: Exception) {
-                                "No connection to Alpaca: " + (e.message ?: "network error")
+        Column(Modifier.padding(horizontal = 24.dp)) {
+            Spacer(Modifier.height(4.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                SkewButton(
+                    if (busy) "Checking…" else "Check now", arrow = !busy,
+                    enabled = !busy && cfg.active && hasKeys,
+                    modifier = Modifier.weight(1f),
+                    onClick = {
+                        busy = true
+                        scope.launch {
+                            val text = withContext(Dispatchers.IO) {
+                                try {
+                                    Graph.runner.tick()
+                                } catch (e: Exception) {
+                                    "No connection to Alpaca: " + (e.message ?: "network error")
+                                }
                             }
+                            withContext(Dispatchers.IO) {
+                                Graph.setLastResult(text)
+                                Scheduler.arm(ctx.applicationContext)
+                            }
+                            result = text
+                            busy = false
+                            reload()
                         }
-                        withContext(Dispatchers.IO) {
-                            Graph.setLastResult(text)
-                            Scheduler.arm(ctx.applicationContext)
-                        }
-                        result = text
-                        busy = false
-                        reload()
-                    }
-                },
-            ) { Text(if (busy) "Checking…" else "Check now") }
-            Spacer(Modifier.width(12.dp))
-            OutlinedButton(onClick = { reload() }) { Text("Refresh") }
+                    },
+                )
+                SkewButton("Refresh", onClick = { reload() }, fill = Stone, modifier = Modifier.weight(1f))
+            }
+            if (result.isNotEmpty()) {
+                Spacer(Modifier.height(12.dp))
+                Hint("Last run: $result", color = Ink)
+            }
+            Spacer(Modifier.height(12.dp))
+            Hint("\"Check now\" does the same as a scheduled run: it only trades inside the order window before the close.", color = PaperMuted)
+            Spacer(Modifier.height(10.dp))
+            Hint("Not financial advice. You trade at your own risk.", color = PaperMuted)
+            Spacer(Modifier.height(24.dp))
         }
-        if (result.isNotEmpty()) {
-            Spacer(Modifier.height(8.dp))
-            Text("Last run: $result", color = Muted)
-        }
-        Spacer(Modifier.height(8.dp))
-        Text(
-            "\"Check now\" does the same as a scheduled run: it only trades inside the order window before the close.",
-            color = Muted, style = MaterialTheme.typography.bodySmall,
-        )
-        Spacer(Modifier.height(16.dp))
-        Text("Not financial advice. You trade at your own risk.", color = Muted, style = MaterialTheme.typography.bodySmall)
     }
+}
+
+/** Larger variant of [Hint] for descriptions inside cards. */
+@Composable
+private fun Hint(text: String, fontSizeLarge: Boolean) {
+    Text(text, color = OnInkMuted, fontSize = if (fontSizeLarge) 15.sp else 13.sp, lineHeight = if (fontSizeLarge) 21.sp else 18.sp)
 }
 
 /** Phone settings that decide whether the bot wakes up on time. */
@@ -341,24 +315,31 @@ fun PhoneChecks(ctx: Context, version: Int) {
     val exactOk = remember(version) { Scheduler.canExact(ctx) }
     val notifyOk = remember(version) { NotificationManagerCompat.from(ctx).areNotificationsEnabled() }
     if (batteryOk && exactOk && notifyOk) return
-    SectionCard("Phone setup needed") {
+    PaperCard {
+        Kicker("Phone setup needed", BadOnPaper)
+        Spacer(Modifier.height(10.dp))
         if (!batteryOk) {
-            Text("Battery saving can stop the bot from waking up for the order window. Allow it to run without restrictions.")
-            OutlinedButton(onClick = {
+            Text("Battery saving can stop the bot from waking up for the order window. Allow it to run without restrictions.", fontSize = 14.sp)
+            Spacer(Modifier.height(8.dp))
+            SkewButton("Allow background running", fill = Stone, height = 42.dp, onClick = {
                 open(ctx, Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:" + ctx.packageName)))
-            }) { Text("Allow background running") }
+            })
+            Spacer(Modifier.height(14.dp))
         }
         if (!exactOk && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            Text("Exact alarms are switched off. Without them the bot can miss the order window.")
-            OutlinedButton(onClick = {
+            Text("Exact alarms are switched off. Without them the bot can miss the order window.", fontSize = 14.sp)
+            Spacer(Modifier.height(8.dp))
+            SkewButton("Allow exact alarms", fill = Stone, height = 42.dp, onClick = {
                 open(ctx, Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:" + ctx.packageName)))
-            }) { Text("Allow exact alarms") }
+            })
+            Spacer(Modifier.height(14.dp))
         }
         if (!notifyOk) {
-            Text("Notifications are switched off. You will not see trades, alerts or missed runs.")
-            OutlinedButton(onClick = {
+            Text("Notifications are switched off. You will not see trades, alerts or missed runs.", fontSize = 14.sp)
+            Spacer(Modifier.height(8.dp))
+            SkewButton("Open notification settings", fill = Stone, height = 42.dp, onClick = {
                 open(ctx, Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, ctx.packageName))
-            }) { Text("Open notification settings") }
+            })
         }
     }
 }
@@ -377,53 +358,153 @@ fun open(ctx: Context, intent: Intent) {
     }
 }
 
+// ========================================================================================== Log
+
+private enum class Kind { TRADE, SKIP, ALERT, REPORT, OTHER }
+
+private fun kindOf(row: LogRow): Kind = when (row.action) {
+    "BUY", "BOUGHT", "SELL", "SOLD" -> Kind.TRADE
+    "SKIP" -> Kind.SKIP
+    "ALERT", "ERROR", "MISSED" -> Kind.ALERT
+    "REPORT" -> Kind.REPORT
+    else -> if (row.error.isNotEmpty()) Kind.ALERT else Kind.OTHER
+}
+
+private fun kindColor(k: Kind): Color = when (k) {
+    Kind.TRADE -> Green
+    Kind.ALERT -> Bad
+    Kind.REPORT -> Gold
+    Kind.SKIP -> OnInkMuted
+    Kind.OTHER -> OnInk
+}
+
+private fun prettyDate(iso: String): String = try {
+    LocalDate.parse(iso).format(DateTimeFormatter.ofPattern("EEE d MMM yyyy", Locale.US)).uppercase()
+} catch (e: Exception) {
+    iso
+}
+
 @Composable
 fun LogScreen(version: Int) {
     val ctx = LocalContext.current
     val rows = remember(version) { Graph.store.readLog(400) }
-    Column(Modifier.fillMaxSize().padding(16.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Log", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-            OutlinedButton(
-                enabled = rows.isNotEmpty(),
-                onClick = {
-                    val csv = LogRow.CSV_HEADER + "\n" + rows.reversed().joinToString("\n") { it.toCsv() }
-                    val send = Intent(Intent.ACTION_SEND).setType("text/plain")
-                        .putExtra(Intent.EXTRA_SUBJECT, "Overnight Bot log.csv")
-                        .putExtra(Intent.EXTRA_TEXT, csv)
-                    open(ctx, Intent.createChooser(send, "Export log as CSV"))
-                },
-            ) { Text("Export CSV") }
+    var filter by remember { mutableStateOf(0) } // 0 all, 1 trades, 2 skips, 3 alerts
+    val shown = remember(rows, filter) {
+        when (filter) {
+            1 -> rows.filter { kindOf(it) == Kind.TRADE }
+            2 -> rows.filter { kindOf(it) == Kind.SKIP }
+            3 -> rows.filter { kindOf(it) == Kind.ALERT }
+            else -> rows
         }
-        Spacer(Modifier.height(8.dp))
-        if (rows.isEmpty()) {
-            Text("Nothing yet. Every decision, order, fill and daily report appears here.", color = Muted)
+    }
+    // Rows come newest first; keep that order and group by trading day.
+    val days = remember(shown) { shown.groupBy { it.date }.toList() }
+    val trades = rows.count { it.action == "SOLD" }
+    val skips = rows.count { kindOf(it) == Kind.SKIP }
+    val alerts = rows.count { kindOf(it) == Kind.ALERT }
+
+    LazyColumn(Modifier.fillMaxSize()) {
+        item {
+            AppHeader("OVERNIGHT / ACTIVITY", "Log") {
+                SkewButton(
+                    "CSV", arrow = true, fill = Stone, height = 38.dp, enabled = rows.isNotEmpty(),
+                    onClick = {
+                        val csv = LogRow.CSV_HEADER + "\n" + rows.reversed().joinToString("\n") { it.toCsv() }
+                        val send = Intent(Intent.ACTION_SEND).setType("text/plain")
+                            .putExtra(Intent.EXTRA_SUBJECT, "Overnight Bot log.csv")
+                            .putExtra(Intent.EXTRA_TEXT, csv)
+                        open(ctx, Intent.createChooser(send, "Export log as CSV"))
+                    },
+                )
+            }
         }
-        LazyColumn {
-            items(rows) { row ->
-                Card(Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
-                    Column(Modifier.padding(12.dp)) {
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(
-                                listOf(row.symbol, row.action).filter { it.isNotEmpty() }.joinToString(" · "),
-                                fontWeight = FontWeight.SemiBold,
-                                color = when (row.action) {
-                                    "BUY", "BOUGHT", "SOLD", "SELL" -> Good
-                                    "ALERT", "ERROR", "MISSED" -> Bad
-                                    else -> Color.Unspecified
-                                },
-                            )
-                            Text(row.date + " " + row.timeEt.take(5) + " ET", color = Muted, style = MaterialTheme.typography.bodySmall)
-                        }
-                        Text(row.reason.replace(" | ", "\n"), style = MaterialTheme.typography.bodyMedium)
-                        val extra = listOf(
-                            if (row.qty > 0 && row.orderStatus.isNotEmpty()) "Order " + Math.round(row.qty) + " shares: " + row.orderStatus else "",
-                            if (row.error.isNotEmpty()) "ERROR: " + row.error else "",
-                            row.mode,
-                        ).filter { it.isNotEmpty() }.joinToString("  ·  ")
-                        Text(extra, color = Muted, style = MaterialTheme.typography.bodySmall)
+        item {
+            InkCard("01 / Last ${rows.size} entries") {
+                Row(Modifier.fillMaxWidth()) {
+                    Stat("Round trips", trades.toString(), Green, Modifier.weight(1f))
+                    Stat("Skipped", skips.toString(), OnInk, Modifier.weight(1f))
+                    Stat("Alerts", alerts.toString(), if (alerts > 0) Bad else OnInk, Modifier.weight(1f))
+                }
+            }
+        }
+        item {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 14.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf("All", "Trades", "Skips", "Alerts").forEachIndexed { i, label ->
+                    Segment(label, filter == i, { filter = i }, Ink, OnInk, Stone, PaperMuted)
+                }
+            }
+        }
+        if (shown.isEmpty()) {
+            item {
+                PaperCard {
+                    Text(
+                        if (rows.isEmpty()) "Nothing yet. Every decision, order, fill and daily report appears here."
+                        else "No entries of this kind yet.",
+                        fontSize = 15.sp,
+                    )
+                }
+            }
+        }
+        items(days, key = { it.first }) { (date, dayRows) ->
+            Column {
+                Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(top = 6.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(prettyDate(date), fontFamily = Mono, fontSize = 11.sp, color = Ink)
+                    Spacer(Modifier.width(10.dp))
+                    Box(Modifier.weight(1f).height(1.dp).background(Color(0xFFD9D6CE)))
+                }
+                InkCard {
+                    dayRows.forEachIndexed { i, row ->
+                        if (i > 0) InkDivider()
+                        LogEntry(row)
                     }
                 }
+            }
+        }
+        item { Spacer(Modifier.height(16.dp)) }
+    }
+}
+
+@Composable
+private fun Stat(label: String, value: String, color: Color, modifier: Modifier = Modifier) {
+    Column(modifier) {
+        Text(value, fontSize = 30.sp, fontWeight = FontWeight.Bold, color = color)
+        Text(label, fontSize = 12.sp, color = OnInkMuted)
+    }
+}
+
+@Composable
+private fun LogEntry(row: LogRow) {
+    val kind = kindOf(row)
+    val color = kindColor(kind)
+    Row {
+        Column(Modifier.width(52.dp)) {
+            Text(row.timeEt.take(5), fontFamily = Mono, fontSize = 13.sp, color = OnInk)
+            Text("ET", fontFamily = Mono, fontSize = 10.sp, color = OnInkMuted)
+        }
+        Box(Modifier.padding(top = 5.dp, end = 12.dp).size(width = 3.dp, height = 14.dp).background(color))
+        Column(Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    listOf(row.symbol, row.action).filter { it.isNotEmpty() }.joinToString(" · "),
+                    fontWeight = FontWeight.Bold, fontSize = 15.sp, color = color, modifier = Modifier.weight(1f),
+                )
+                if (row.mode.isNotEmpty()) Text(row.mode.uppercase(), fontFamily = Mono, fontSize = 10.sp, color = OnInkMuted)
+            }
+            if (row.reason.isNotEmpty()) {
+                Spacer(Modifier.height(3.dp))
+                Text(row.reason.replace(" | ", "\n"), fontSize = 14.sp, lineHeight = 20.sp, color = Color(0xFFD9D5CC))
+            }
+            val facts = listOf(
+                if (row.price > 0) "price $" + usd(row.price) else "",
+                if (row.qty > 0 && row.orderStatus.isNotEmpty()) Math.round(row.qty).toString() + " sh · " + row.orderStatus else "",
+            ).filter { it.isNotEmpty() }
+            if (facts.isNotEmpty()) {
+                Spacer(Modifier.height(4.dp))
+                Text(facts.joinToString("  ·  "), fontFamily = Mono, fontSize = 11.sp, color = OnInkMuted)
+            }
+            if (row.error.isNotEmpty()) {
+                Spacer(Modifier.height(4.dp))
+                Text("ERROR: " + row.error, fontSize = 13.sp, color = Bad)
             }
         }
     }

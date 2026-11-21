@@ -1,21 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Crescent moon with a rising line: hold overnight, sell at the open. -->
+<!-- Moon face: the moon is the bot. Navy crescent with two eyes, on the yellow launcher background. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
     <path
-        android:fillColor="#FFF4F1EA"
-        android:pathData="M60,30a24,24 0,1 0,18 40a19,19 0,1 1,-18 -40z" />
+        android:fillColor="#FF0D1328"
+        android:pathData="M56.32,30.1A27,27 0 1,0 80.31,63.08A22.5,22.5 0 0,1 56.32,30.1Z" />
     <path
-        android:fillColor="#00000000"
-        android:strokeColor="#FFD97757"
-        android:strokeWidth="5"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round"
-        android:pathData="M30,76L44,64L54,70L78,46" />
-    <path
-        android:fillColor="#FFD97757"
-        android:pathData="M68,42L82,42L82,56z" />
+        android:fillColor="#FFF4B342"
+        android:pathData="M40.1,57.15A2.4,2.4 0 0,1 44.9,57.15V62.85A2.4,2.4 0 0,1 40.1,62.85ZM50.8,57.15A2.4,2.4 0 0,1 55.6,57.15V62.85A2.4,2.4 0 0,1 50.8,62.85Z" />
 </vector>

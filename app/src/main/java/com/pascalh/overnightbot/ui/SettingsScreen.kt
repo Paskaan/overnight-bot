@@ -2,6 +2,11 @@
 
 package com.pascalh.overnightbot.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -11,16 +16,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -33,8 +32,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.pascalh.overnightbot.Graph
 import com.pascalh.overnightbot.core.Engine
@@ -53,24 +50,6 @@ import com.pascalh.overnightbot.core.State as BotState
 private fun number(text: String): Double? = text.trim().replace(',', '.').toDoubleOrNull()
 
 private fun show(x: Double): String = MiniJson.stringify(Math.round(x * 10000) / 10000.0)
-
-@Composable
-private fun Choice(label: String, selected: Boolean, onClick: () -> Unit) {
-    FilterChip(selected = selected, onClick = onClick, label = { Text(label) }, modifier = Modifier.padding(end = 8.dp))
-}
-
-@Composable
-private fun Field(label: String, value: String, onChange: (String) -> Unit, numeric: Boolean = false, secret: Boolean = false) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onChange,
-        label = { Text(label) },
-        singleLine = true,
-        visualTransformation = if (secret) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
-        keyboardOptions = KeyboardOptions(keyboardType = if (numeric) KeyboardType.Decimal else if (secret) KeyboardType.Password else KeyboardType.Text),
-        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-    )
-}
 
 @Composable
 fun SettingsScreen(state: BotState, reload: () -> Unit) {
@@ -166,38 +145,46 @@ fun SettingsScreen(state: BotState, reload: () -> Unit) {
         )
     }
 
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
-        Text("Settings", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(12.dp))
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+        AppHeader("OVERNIGHT / CONFIGURATION", "Settings")
 
-        SectionCard("Account") {
-            Row {
-                Choice("Paper (test)", mode == Mode.PAPER) {
-                    mode = Mode.PAPER
-                    keysSaved = Graph.creds.has(Mode.PAPER)
-                    keyMessage = ""
-                }
-                Choice("Live (real money)", mode == Mode.LIVE) {
-                    mode = Mode.LIVE
-                    keysSaved = Graph.creds.has(Mode.LIVE)
-                    keyMessage = ""
-                }
-            }
-            Text(
-                if (mode == Mode.PAPER) "Alpaca's paper account does not run the closing and opening auctions, so in paper mode the bot uses normal market orders 5 minutes before the close and 1 minute after the open."
-                else "Buys with a market-on-close order about 20 minutes before the close and sells in the next opening auction.",
-                color = Muted, style = MaterialTheme.typography.bodySmall,
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                if (keysSaved) "Keys for this mode are saved on this phone (encrypted). Enter new ones to replace them."
-                else "Enter the API keys of your Alpaca " + (if (mode == Mode.PAPER) "paper" else "live") + " account.",
-            )
-            Spacer(Modifier.height(8.dp))
-            Field("API Key ID", keyId, { keyId = it })
-            Field("Secret Key", secret, { secret = it }, secret = true)
+        // 01: the only part in Alpaca's yellow and white. It is about Alpaca's keys, not the app.
+        PaperCard {
+            Kicker("01 / Alpaca connection", AlpacaOlive)
+            Spacer(Modifier.height(14.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Button(onClick = {
+                AlpacaBadge()
+                Spacer(Modifier.width(12.dp))
+                Text("Alpaca API", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = AlpacaText)
+            }
+            Spacer(Modifier.height(14.dp))
+            AlpacaSegments(listOf("Paper (test)" to (mode == Mode.PAPER), "Live (real money)" to (mode == Mode.LIVE))) { i ->
+                mode = if (i == 0) Mode.PAPER else Mode.LIVE
+                keysSaved = Graph.creds.has(mode)
+                keyMessage = ""
+            }
+            Spacer(Modifier.height(14.dp))
+            Text(
+                if (mode == Mode.PAPER) "Alpaca's paper account does not run the closing and opening auctions. In paper mode the bot uses normal market orders 5 minutes before the close and 1 minute after the open."
+                else "Live: the bot buys with a market-on-close order about 20 minutes before the close and sells in the next opening auction. Real money.",
+                color = AlpacaNoticeText, fontSize = 13.sp, lineHeight = 18.sp,
+                modifier = Modifier.fillMaxWidth().background(AlpacaNotice).padding(horizontal = 12.dp, vertical = 10.dp),
+            )
+            Spacer(Modifier.height(14.dp))
+            Hint(
+                if (keysSaved) "Keys for " + (if (mode == Mode.PAPER) "paper" else "live") + " mode are saved on this phone (encrypted). Enter new ones to replace them."
+                else "Enter your Alpaca API Key ID and Secret Key for the selected mode. Keys are stored encrypted on this phone.",
+                color = AlpacaMuted,
+            )
+            Spacer(Modifier.height(14.dp))
+            BoxField("API Key ID *", keyId, { keyId = it }, alpaca = true, placeholder = if (keysSaved) "Saved (enter to replace)" else "Enter API Key ID")
+            BoxField("Secret Key *", secret, { secret = it }, alpaca = true, secret = true, placeholder = if (keysSaved) "Saved (enter to replace)" else "Enter Secret Key")
+            Spacer(Modifier.height(2.dp))
+            SkewButton(
+                if (keyId.isBlank() && secret.isBlank() && keysSaved) "Test connection" else "Save keys and test",
+                fill = AlpacaYellow, content = AlpacaText, arrow = true, height = 48.dp,
+                modifier = Modifier.fillMaxWidth(),
+                onClick = {
                     val m = mode
                     val id = keyId
                     val sec = secret
@@ -223,91 +210,103 @@ fun SettingsScreen(state: BotState, reload: () -> Unit) {
                         }
                         reload()
                     }
-                }) { Text(if (keyId.isBlank() && secret.isBlank() && keysSaved) "Test saved keys" else "Save keys and test") }
-                if (keysSaved) {
-                    Spacer(Modifier.width(8.dp))
-                    TextButton(onClick = {
+                },
+            )
+            if (keyMessage.isNotEmpty()) {
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    keyMessage, fontSize = 13.sp,
+                    color = when {
+                        keyMessage.startsWith("Connected") -> Color(0xFF1F7A4A)
+                        keyMessage == "Testing…" || keyMessage == "Keys deleted." -> AlpacaMuted
+                        else -> BadOnPaper
+                    },
+                )
+            }
+            if (keysSaved) {
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    TextAction("Delete keys", onClick = {
                         Graph.creds.clear(mode)
                         keysSaved = false
                         keyMessage = "Keys deleted."
                         reload()
-                    }) { Text("Delete keys") }
+                    }, color = AlpacaText)
                 }
             }
-            if (keyMessage.isNotEmpty()) Text(keyMessage, color = Muted)
         }
 
-        SectionCard("Which bot gets the money") {
-            Row {
-                Choice("PLUG only", bots == "PLUG") { bots = "PLUG" }
-                Choice("RIOT only", bots == "RIOT") { bots = "RIOT" }
-                Choice("Both", bots == "BOTH") { bots = "BOTH" }
+        // From here on: the app's own settings, in the dark angled style.
+        InkCard("02 / Allocation", "Which bot gets the money") {
+            InkSegments(listOf("PLUG only" to (bots == "PLUG"), "RIOT only" to (bots == "RIOT"), "Both" to (bots == "BOTH"))) { i ->
+                bots = listOf("PLUG", "RIOT", "BOTH")[i]
             }
             if (bots == "BOTH") {
-                Spacer(Modifier.height(8.dp))
-                Text("PLUG $plugShare%  ·  RIOT ${100 - plugShare}%", fontWeight = FontWeight.SemiBold)
-                Slider(
-                    value = plugShare.toFloat(),
-                    onValueChange = { plugShare = ((it / 5f).roundToInt() * 5).coerceIn(5, 95) },
-                    valueRange = 5f..95f,
-                    steps = 17,
-                )
-                Text(
-                    "Each bot trades only with its own share and keeps its own profit/loss. Moving the slider later redistributes the combined capital.",
-                    color = Muted, style = MaterialTheme.typography.bodySmall,
-                )
+                Spacer(Modifier.height(14.dp))
+                Row(Modifier.fillMaxWidth()) {
+                    Text("PLUG $plugShare%", fontWeight = FontWeight.Bold, color = Green, modifier = Modifier.weight(1f))
+                    Text("RIOT ${100 - plugShare}%", fontWeight = FontWeight.Bold)
+                }
+                Spacer(Modifier.height(6.dp))
+                SplitBar(plugShare, { plugShare = it })
+                Spacer(Modifier.height(10.dp))
+                Hint("Each bot trades only with its own share and keeps its own profit/loss. Moving the slider later redistributes the combined capital.")
             }
         }
 
-        SectionCard("How much") {
-            Row {
-                Choice("Fixed amount", sizing == Sizing.FIXED) { sizing = Sizing.FIXED }
-                Choice("Compounding", sizing == Sizing.COMPOUND) { sizing = Sizing.COMPOUND }
+        InkCard("03 / Capital", "How much") {
+            InkSegments(listOf("Fixed amount" to (sizing == Sizing.FIXED), "Compounding" to (sizing == Sizing.COMPOUND))) { i ->
+                sizing = if (i == 0) Sizing.FIXED else Sizing.COMPOUND
             }
-            Spacer(Modifier.height(8.dp))
-            Field(if (sizing == Sizing.FIXED) "Amount per night, both bots together (USD)" else "Starting capital, both bots together (USD)", total, { total = it }, numeric = true)
-            Text(
+            Spacer(Modifier.height(14.dp))
+            BoxField(
+                if (sizing == Sizing.FIXED) "Amount per night, both bots together (USD)" else "Starting capital, both bots together (USD)",
+                total, { total = it }, numeric = true, suffix = "USD",
+            )
+            Hint(
                 if (sizing == Sizing.FIXED) "Every night the bots use this amount at most, split as chosen above. Profits stay as cash."
                 else "Each bot reinvests its own profits and carries its own losses. Changing this amount starts the capital fresh.",
-                color = Muted, style = MaterialTheme.typography.bodySmall,
             )
-            Spacer(Modifier.height(8.dp))
-            Field("Cash buffer (%)", buffer, { buffer = it }, numeric = true)
-            Text("Share of the budget that is not invested, so a price jump before the close cannot overdraw the account.", color = Muted, style = MaterialTheme.typography.bodySmall)
-            Spacer(Modifier.height(4.dp))
-            TextButton(onClick = { confirmReset = true }) { Text("Reset capital and profit counters") }
+            Spacer(Modifier.height(14.dp))
+            BoxField("Cash buffer (%)", buffer, { buffer = it }, numeric = true, suffix = "%")
+            Hint("Share of the budget that is not invested, so a price jump before the close cannot overdraw the account.")
+            Spacer(Modifier.height(6.dp))
+            TextAction("Reset capital and profit counters", onClick = { confirmReset = true }, color = Green)
         }
 
-        SectionCard("Green-day rule") {
-            Field("PLUG: minimum gain over today's open (%)", plugGreen, { plugGreen = it }, numeric = true)
-            Field("RIOT: minimum gain over today's open (%)", riotGreen, { riotGreen = it }, numeric = true)
-            Text("Tested settings: PLUG 0%, RIOT 1%.", color = Muted, style = MaterialTheme.typography.bodySmall)
-        }
-
-        SectionCard("Orders") {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(if (orders) "Send orders" else "Signals only")
-                    Text("Off: the bot logs what it would do and sends nothing to Alpaca.", color = Muted, style = MaterialTheme.typography.bodySmall)
-                }
-                Switch(checked = orders, onCheckedChange = { orders = it })
+        InkCard("04 / Strategy", "Green-day rule") {
+            Hint("Minimum gain over today's open (%)")
+            Spacer(Modifier.height(12.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                BoxField("PLUG", plugGreen, { plugGreen = it }, numeric = true, suffix = "%", big = true, modifier = Modifier.weight(1f))
+                BoxField("RIOT", riotGreen, { riotGreen = it }, numeric = true, suffix = "%", big = true, modifier = Modifier.weight(1f))
             }
+            Hint("Tested settings: PLUG 0%, RIOT 1%.")
         }
 
-        Button(
-            onClick = { if (mode == Mode.LIVE && saved.mode != Mode.LIVE) confirmLive = true else save() },
-            modifier = Modifier.fillMaxWidth(),
-        ) { Text("Save settings") }
-        if (message.isNotEmpty()) {
-            Spacer(Modifier.height(8.dp))
-            Text(message, color = Muted)
+        InkCard("05 / Execution") {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(if (orders) "Send orders" else "Signals only", fontSize = 26.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                SkewToggle(orders, { orders = it })
+            }
+            Spacer(Modifier.height(10.dp))
+            Hint("Off: the bot logs what it would do and sends nothing to Alpaca.")
         }
-        Spacer(Modifier.height(16.dp))
-        Text(
-            "Use an Alpaca account that holds nothing else in PLUG or RIOT: the bot sells the whole position of an active bot at the open. " +
-                "The phone must be on and online about 20 minutes before the US close. Not financial advice.",
-            color = Muted, style = MaterialTheme.typography.bodySmall,
-        )
-        Spacer(Modifier.height(24.dp))
+
+        Column(Modifier.padding(horizontal = 24.dp)) {
+            Spacer(Modifier.height(4.dp))
+            SkewButton(
+                "Save settings", arrow = true, height = 54.dp, modifier = Modifier.fillMaxWidth(),
+                onClick = { if (mode == Mode.LIVE && saved.mode != Mode.LIVE) confirmLive = true else save() },
+            )
+            if (message.isNotEmpty()) {
+                Spacer(Modifier.height(10.dp))
+                Text(message, color = if (message == "Saved." || message == "Capital reset.") Color(0xFF1F7A4A) else BadOnPaper, fontSize = 14.sp)
+            }
+            Spacer(Modifier.height(16.dp))
+            Hint("Use an Alpaca account that holds nothing else in PLUG or RIOT: the bot sells the whole position of an active bot at the open.", color = PaperMuted)
+            Spacer(Modifier.height(12.dp))
+            Hint("The phone must be on and online about 20 minutes before the US close. Not financial advice.", color = PaperMuted)
+            Spacer(Modifier.height(24.dp))
+        }
     }
 }

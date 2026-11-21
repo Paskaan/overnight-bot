@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="night">#FF101418</color>
-    <color name="accent">#FFD97757</color>
+    <color name="paper">#FFF6F5F2</color>
+    <color name="ink">#FF211F1D</color>
+    <color name="moon_yellow">#FFF4B342</color>
+    <color name="moon_navy">#FF0D1328</color>
 </resources>
